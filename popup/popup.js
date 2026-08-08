@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const timeSavedCountEl   = document.getElementById('timeSavedCount');
   const blockedListEl      = document.getElementById('blockedList');
   const listBadge          = document.getElementById('listBadge');
+  const pickElementBtn     = document.getElementById('pickElementBtn');
+  const hiddenCountEl      = document.getElementById('hiddenCount');
 
   // ── Open Options ──────────────────────────────────────────────────────────
   openOptionsBtn.addEventListener('click', () => chrome.runtime.openOptionsPage());
@@ -113,6 +115,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     whitelistBtnText.textContent = whitelisted ? 'Whitelisted' : 'Whitelist Site';
     whitelistBtn.classList.toggle('active', whitelisted);
   }
+
+  // ── Show hidden element count for this domain ─────────────────────────────
+  if (currentDomain) {
+    const hKey = `hidden_${currentDomain}`;
+    const hRes = await chrome.storage.local.get([hKey]);
+    const hiddenSelectors = hRes[hKey] || [];
+    hiddenCountEl.textContent = hiddenSelectors.length;
+  }
+
+  // ── Pick Element button ───────────────────────────────────────────────────
+  pickElementBtn.addEventListener('click', async () => {
+    if (!activeTab?.id || currentDomainEl.textContent === 'Internal Page') return;
+    pickElementBtn.classList.add('active');
+    pickElementBtn.querySelector('span').textContent = 'Click element on page…';
+    // Send message to content script to activate picker
+    try {
+      await chrome.tabs.sendMessage(activeTab.id, { type: 'ACTIVATE_PICKER' });
+    } catch (e) {}
+    // Close popup so user can interact with page
+    setTimeout(() => window.close(), 300);
+  });
 
   // ── Load blocked list — READ DIRECTLY from storage, no SW round-trip ─────
   if (activeTab?.id) {

@@ -275,7 +275,7 @@
       if (tabId) {
         const key  = `ts_${tabId}`;
         const res  = await chrome.storage.local.get([key]);
-        const list = res[key] || [];
+        const list = res[key] || [];;
         list.push({ url, time: Date.now() });
         await chrome.storage.local.set({ [key]: list });
       }
@@ -297,4 +297,185 @@
       return null;
     }
   }
+
+  // ─── Custom hidden elements (manual element picker) ──────────────────────────
+
+  // Apply any saved hidden selectors for this domain
+  async function applyCustomHidden() {
+    const domain = window.location.hostname;
+    const key    = `hidden_${domain}`;
+    const res    = await chrome.storage.local.get([key]);
+    const selectors = res[key] || [];
+    selectors.forEach(sel => {
+      try {
+        document.querySelectorAll(sel).forEach(el => {
+          el.style.setProperty('display', 'none', 'important');
+          el.setAttribute('data-popout-custom-hidden', '1');
+        });
+      } catch {}
+    });
+  }
+
+  applyCustomHidden();
+
+  // Re-apply on DOM mutations (for SPAs / lazy-loaded content)
+  const hiddenObserver = new MutationObserver(() => applyCustomHidden());
+  hiddenObserver.observe(document.documentElement, { childList: true, subtree: true });
+
+  // ─── Element Picker Mode ──────────────────────────────────────────────────────
+  let pickerActive = false;
+  let lastHighlighted = null;
+
+  // Inject picker styles into page
+  function injectPickerStyles() {
+    if (document.getElementById('__popout_picker_style')) return;
+    const style = document.createElement('style');
+    style.id = '__popout_picker_style';
+    style.textContent = `
+      .__popout_highlight {
+        outline: 2px dashed #fbbf24 !important;
+        outline-offset: 2px !important;
+        background: rgba(251,191,36,0.07) !important;
+        cursor: crosshair !important;
+      }
+      #__popout_picker_banner {
+        position: fixed !important;
+        top: 0 !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        z-index: 2147483647 !important;
+        background: #fbbf24 !important;
+        color: #0d1117 !important;
+        font: 700 12px/1 "Plus Jakarta Sans", system-ui, sans-serif !important;
+        padding: 7px 16px !important;
+        border-radius: 0 0 10px 10px !important;
+        box-shadow: 0 4px 20px rgba(251,191,36,0.5) !important;
+        pointer-events: none !important;
+        letter-spacing: 0.02em !important;
+      }
+    `;
+    document.documentElement.appendChild(style);
+  }
+
+  function showPickerBanner() {
+    let b = document.getElementById('__popout_picker_banner');
+    if (!b) {
+      b = document.createElement('div');
+      b.id = '__popout_picker_banner';
+      document.documentElement.appendChild(b);
+    }
+    b.textContent = '🎯 popOUT Picker — Click an element to hide it  |  Esc to cancel';
+  }
+
+  function hidePickerBanner() {
+    document.getElementById('__popout_picker_banner')?.remove();
+  }
+
+  function clearHighlight() {
+    lastHighlighted?.classList.remove('__popout_highlight');
+    lastHighlighted = null;
+  }
+
+  // Generate a stable CSS selector for an element
+  function buildSelector(el) {
+    // 1. Try ID
+    if (el.id && !/^\d/.test(el.id)) return `#${CSS.escape(el.id)}`;
+
+    // 2. Try unique class combination
+    if (el.className && typeof el.className === 'string') {
+      const classes = el.className.trim().split(/\s+/)
+        .filter(c => c && !c.startsWith('__popout'))
+        .map(c => `.${CSS.escape(c)}`).join('');
+      if (classes) {
+        const sel = el.tagName.toLowerCase() + classes;
+        if (document.querySelectorAll(sel).length === 1) return sel;
+      }
+    }
+
+    // 3. nth-child path (up to 4 levels)
+    function nthPath(node, depth = 0) {
+      if (!node.parentElement || depth > 4) return node.tagName.toLowerCase();
+      const siblings = Array.from(node.parentElement.children)
+        .filter(s => s.tagName === node.tagName);
+      const idx = siblings.indexOf(node) + 1;
+      const part = `${node.tagName.toLowerCase()}:nth-of-type(${idx})`;
+      return `${nthPath(node.parentElement, depth + 1)} > ${part}`;
+    }
+    return nthPath(el);
+  }
+
+  function activatePicker() {
+    if (pickerActive) return;
+    pickerActive = true;
+    injectPickerStyles();
+    showPickerBanner();
+
+    function onMouseOver(e) {
+      if (!pickerActive) return;
+      const el = e.target;
+      if (el.id === '__popout_picker_banner' || el.hasAttribute('data-popout-custom-hidden')) return;
+      clearHighlight();
+      el.classList.add('__popout_highlight');
+      lastHighlighted = el;
+      e.stopPropagation();
+    }
+
+    function onMouseOut(e) {
+      if (e.target === lastHighlighted) clearHighlight();
+    }
+
+    async function onClick(e) {
+      if (!pickerActive) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      const el = e.target;
+      if (el.id === '__popout_picker_banner') return;
+
+      const selector = buildSelector(el);
+
+      // Hide immediately
+      el.style.setProperty('display', 'none', 'important');
+      el.setAttribute('data-popout-custom-hidden', '1');
+
+      // Persist selector for this domain
+      const domain = window.location.hostname;
+      const key    = `hidden_${domain}`;
+      const stored = await chrome.storage.local.get([key]);
+      const list   = stored[key] || [];
+      if (!list.includes(selector)) list.push(selector);
+      await chrome.storage.local.set({ [key]: list });
+
+      deactivatePicker();
+    }
+
+    function onKeyDown(e) {
+      if (e.key === 'Escape') deactivatePicker();
+    }
+
+    function deactivatePicker() {
+      pickerActive = false;
+      clearHighlight();
+      hidePickerBanner();
+      document.removeEventListener('mouseover', onMouseOver, true);
+      document.removeEventListener('mouseout',  onMouseOut,  true);
+      document.removeEventListener('click',     onClick,     true);
+      document.removeEventListener('keydown',   onKeyDown,   true);
+    }
+
+    document.addEventListener('mouseover', onMouseOver, true);
+    document.addEventListener('mouseout',  onMouseOut,  true);
+    document.addEventListener('click',     onClick,     true);
+    document.addEventListener('keydown',   onKeyDown,   true);
+  }
+
+  // ─── Listen for messages from popup ──────────────────────────────────────────
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message.type === 'ACTIVATE_PICKER') {
+      activatePicker();
+      sendResponse({ ok: true });
+    }
+    return false;
+  });
+
 })();
