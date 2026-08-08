@@ -14,6 +14,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const tabBlockedCountEl = document.getElementById('tabBlockedCount');
   const totalBlockedCountEl = document.getElementById('totalBlockedCount');
+  const dataSavedCountEl = document.getElementById('dataSavedCount');
+  const timeSavedCountEl = document.getElementById('timeSavedCount');
+
   const blockedListEl = document.getElementById('blockedList');
   const listBadge = document.getElementById('listBadge');
 
@@ -50,7 +53,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   trackersToggle.checked = settings.stripTrackers !== false;
   fingerprintToggle.checked = settings.antiFingerprint !== false;
 
-  totalBlockedCountEl.textContent = settings.totalBlocked || 0;
+  const totalBlocked = settings.totalBlocked || 0;
+  totalBlockedCountEl.textContent = totalBlocked;
+
+  // Calculate Data Saved (~0.4 MB per block) & Time Saved (~3s per block)
+  const dataSavedMB = (totalBlocked * 0.4).toFixed(1);
+  const timeSavedSec = totalBlocked * 3;
+  
+  dataSavedCountEl.textContent = `${dataSavedMB} MB`;
+  if (timeSavedSec > 60) {
+    timeSavedCountEl.textContent = `${(timeSavedSec / 60).toFixed(1)}m`;
+  } else {
+    timeSavedCountEl.textContent = `${timeSavedSec}s`;
+  }
 
   const isWhitelisted = whitelist.includes(currentDomain);
   updateWhitelistBtnUI(isWhitelisted);
