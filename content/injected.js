@@ -4,8 +4,8 @@
 
   const originalWindowOpen = window.open;
 
+  // Intercept window.open
   window.open = function (url, target, features) {
-    // Check if popOUT protection is active via attribute on root
     if (document.documentElement.getAttribute('data-popout-enabled') === 'false') {
       return originalWindowOpen.apply(this, arguments);
     }
@@ -16,7 +16,6 @@
     const targetUrl = url || 'about:blank';
     window.postMessage({ type: 'POPOUT_BLOCKED_EVENT', url: targetUrl }, '*');
     
-    // Return dummy window object to prevent null reference errors on calling scripts
     return {
       closed: false,
       focus: () => {},
@@ -24,5 +23,32 @@
       close: () => {},
       postMessage: () => {}
     };
+  };
+
+  // Block Push Notification Requests
+  if (window.Notification && Notification.requestPermission) {
+    const originalRequestPermission = Notification.requestPermission;
+    Notification.requestPermission = function () {
+      if (document.documentElement.getAttribute('data-popout-block-notifications') === 'true') {
+        return Promise.resolve('denied');
+      }
+      return originalRequestPermission.apply(this, arguments);
+    };
+  }
+
+  // Canvas Fingerprint Protection (Inject subtle noise)
+  const originalToDataURL = HTMLCanvasElement.prototype.toDataURL;
+  HTMLCanvasElement.prototype.toDataURL = function () {
+    if (document.documentElement.getAttribute('data-popout-anti-fingerprint') === 'true') {
+      const ctx = this.getContext('2d');
+      if (ctx) {
+        try {
+          const imgData = ctx.getImageData(0, 0, Math.min(this.width, 10), Math.min(this.height, 10));
+          imgData.data[0] = (imgData.data[0] + 1) % 255;
+          ctx.putImageData(imgData, 0, 0);
+        } catch (e) {}
+      }
+    }
+    return originalToDataURL.apply(this, arguments);
   };
 })();
