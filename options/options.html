@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>popOUT Settings & Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <header class="header">
+      <div class="brand">
+        <img src="../assets/icon48.png" alt="popOUT Logo" class="brand-logo">
+        <div class="brand-text">
+          <h1>pop<span>OUT</span> Options</h1>
+          <span class="version-tag">Ultimate Protection Suite v1.2</span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="exportBtn">Export JSON</button>
+        <button class="btn btn-secondary" id="importBtn">Import JSON</button>
+        <input type="file" id="importFile" accept=".json" style="display:none">
+      </div>
+    </header>
+
+    <main class="main-content">
+      <!-- Whitelist Manager Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Whitelisted Domains</h2>
+          <p>Sites on this list will bypass all popup and overlay blocking.</p>
+        </div>
+        <div class="input-row">
+          <input type="text" id="whitelistInput" placeholder="e.g. trusted-site.com" class="text-input">
+          <button class="btn btn-accent" id="addWhitelistBtn">Add Domain</button>
+        </div>
+        <div class="domain-list" id="whitelistContainer">
+          <!-- Dynamic list -->
+        </div>
+      </section>
+
+      <!-- Blacklist Manager Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Strict Blocklist</h2>
+          <p>Sites on this list will always be strictly blocked with no exceptions.</p>
+        </div>
+        <div class="input-row">
+          <input type="text" id="blacklistInput" placeholder="e.g. annoying-ads.com" class="text-input">
+          <button class="btn btn-accent" id="addBlacklistBtn">Add Domain</button>
+        </div>
+        <div class="domain-list" id="blacklistContainer">
+          <!-- Dynamic list -->
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>
