@@ -152,6 +152,15 @@ body {
   border-color: var(--primary-cyan);
 }
 
+.input-error {
+  font-size: 12px;
+  color: var(--accent-red);
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
 .domain-list {
   display: flex;
   flex-wrap: wrap;

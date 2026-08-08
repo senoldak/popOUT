@@ -3,7 +3,12 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const ROOT_DIR = path.resolve(__dirname, '..');
-const OUTPUT_ZIP = path.join(ROOT_DIR, 'popOUT-v1.3.0.zip');
+
+// Version is read from manifest.json so packaging can never drift.
+const manifestPath = path.join(ROOT_DIR, 'manifest.json');
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const VERSION = manifest.version;
+const OUTPUT_ZIP = path.join(ROOT_DIR, `popOUT-v${VERSION}.zip`);
 
 const INCLUDED_PATHS = [
   'manifest.json',
@@ -15,7 +20,7 @@ const INCLUDED_PATHS = [
   'popup'
 ];
 
-console.log('📦 Packaging popOUT for Chrome Web Store release...');
+console.log(`📦 Packaging popOUT v${VERSION} for Chrome Web Store release...`);
 
 // Use PowerShell Compress-Archive on Windows
 const itemsToCompress = INCLUDED_PATHS.map(p => `'${path.join(ROOT_DIR, p)}'`).join(',');
@@ -28,7 +33,7 @@ const command = `powershell -Command "Compress-Archive -Path ${itemsToCompress} 
 
 try {
   execSync(command, { stdio: 'inherit' });
-  console.log(`✅ Release package created successfully: ${OUTPUT_ZIP}`);
+  console.log(`✅ Release package created successfully: popOUT-v${VERSION}.zip`);
 } catch (err) {
   console.error('❌ Failed to create zip package:', err);
   process.exit(1);

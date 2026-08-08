@@ -1,16 +1,41 @@
+// ─── Defaults & migration ──────────────────────────────────────────────────────
+// Single source of truth for all settings keys. New keys added across versions
+// are merged here so upgrades never leave stale/undefined values behind.
+const DEFAULT_SETTINGS = Object.freeze({
+  enabled: true,
+  blockPopups: true,
+  // Aggressive by default: click-triggered popups / popunders are the #1
+  // annoyance on ad portals. Users can disable this for OAuth/payment flows.
+  blockGesturedPopups: true,
+  blockOverlays: true,
+  blockAntiAdblock: true,
+  stripTrackers: true,
+  aggressiveTrackerStrip: false,
+  blockNotifications: true,
+  antiFingerprint: true,
+  totalBlocked: 0
+});
+
+async function migrateSettings() {
+  const data = await chrome.storage.local.get(['settings', 'whitelist', 'blacklist']);
+  const existing = data.settings || {};
+  const settings = { ...DEFAULT_SETTINGS, ...existing };
+  await chrome.storage.local.set({
+    settings,
+    whitelist: Array.isArray(data.whitelist) ? data.whitelist : [],
+    blacklist: Array.isArray(data.blacklist) ? data.blacklist : []
+  });
+  return settings;
+}
+
 // ─── Tab state helpers (stored in local so they survive SW restarts) ─────────
 // Key pattern: "ts_{tabId}"  → Array<{url, time}>
-
 const TS_PREFIX = 'ts_';
 
 async function getTabState(tabId) {
   const key = TS_PREFIX + tabId;
   const res = await chrome.storage.local.get([key]);
   return res[key] || [];
-}
-
-async function setTabState(tabId, list) {
-  await chrome.storage.local.set({ [TS_PREFIX + tabId]: list });
 }
 
 async function clearTabState(tabId) {
@@ -29,22 +54,35 @@ function updateBadge(tabId, count) {
   } catch (e) { /* tab may have closed */ }
 }
 
-// ─── Install ─────────────────────────────────────────────────────────────────
-chrome.runtime.onInstalled.addListener(async () => {
-  const data = await chrome.storage.local.get(['settings', 'whitelist']);
-  if (!data.settings) {
-    await chrome.storage.local.set({
-      settings: {
-        enabled: true,
-        blockOverlays: true,
-        blockAntiAdblock: true,
-        stripTrackers: true,
-        blockNotifications: true,
-        antiFingerprint: true,
-        totalBlocked: 0
-      },
-      whitelist: []
+// ─── Site data wipe (shared by popup button + keyboard shortcut) ─────────────
+const SITE_DATA_TYPES = {
+  cache: true,
+  cookies: true,
+  fileSystems: true,
+  indexedDB: true,
+  localStorage: true,
+  serviceWorkers: true,
+  webSQL: true
+};
+
+function resetSiteData(origin) {
+  return new Promise((resolve, reject) => {
+    chrome.browsingData.remove({ origins: [origin] }, SITE_DATA_TYPES, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+      } else {
+        resolve();
+      }
     });
+  });
+}
+
+// ─── Install / upgrade ───────────────────────────────────────────────────────
+chrome.runtime.onInstalled.addListener(async () => {
+  try {
+    await migrateSettings();
+  } catch (e) {
+    console.warn('[popOUT] settings migration failed:', e);
   }
 });
 
@@ -57,20 +95,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  // Popup blocked by injected.js
+  // Popup blocked by injected.js → update badge + global counter only.
+  // The per-tab list is written DIRECTLY by the content script (see
+  // content.js) so it never needs a round-trip through the SW here. Writing
+  // twice used to double-count every blocked popup.
   if (message.type === 'POPUP_BLOCKED' && sender.tab) {
     const tabId = sender.tab.id;
     (async () => {
       try {
-        const list = await getTabState(tabId);
-        list.push({ url: message.url || 'about:blank', time: Date.now() });
-        await setTabState(tabId, list);
-        updateBadge(tabId, list.length);
-
         const res = await chrome.storage.local.get(['settings']);
         const settings = res.settings || {};
         settings.totalBlocked = (settings.totalBlocked || 0) + 1;
         await chrome.storage.local.set({ settings });
+
+        // Content script wrote ts_ before messaging us → badge is accurate.
+        const list = await getTabState(tabId);
+        updateBadge(tabId, list.length);
 
         sendResponse({ success: true });
       } catch (e) {
@@ -109,12 +149,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Reset site cookies/storage
   if (message.type === 'CLEAR_SITE_DATA' && message.origin) {
-    chrome.browsingData.remove(
-      { origins: [message.origin] },
-      { cache: true, cookies: true, fileSystems: true, indexedDB: true,
-        localStorage: true, serviceWorkers: true, webSQL: true },
-      () => sendResponse({ success: true })
-    );
+    resetSiteData(message.origin)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
     return true;
   }
 });
@@ -127,13 +164,11 @@ chrome.commands.onCommand.addListener(async (command) => {
   try {
     const { origin } = new URL(tab.url);
     if (!origin.startsWith('http')) return;
-    chrome.browsingData.remove(
-      { origins: [origin] },
-      { cache: true, cookies: true, fileSystems: true, indexedDB: true,
-        localStorage: true, serviceWorkers: true, webSQL: true },
-      () => chrome.tabs.reload(tab.id)
-    );
-  } catch (e) {}
+    await resetSiteData(origin);
+    await chrome.tabs.reload(tab.id);
+  } catch (e) {
+    console.warn('[popOUT] reset-site-data failed:', e);
+  }
 });
 
 // ─── Clean up on tab close ────────────────────────────────────────────────────
