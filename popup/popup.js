@@ -2,9 +2,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const globalToggle = document.getElementById('globalToggle');
   const currentDomainEl = document.getElementById('currentDomain');
   const whitelistBtn = document.getElementById('whitelistBtn');
+  const whitelistBtnText = document.getElementById('whitelistBtnText');
   const tabBlockedCountEl = document.getElementById('tabBlockedCount');
   const totalBlockedCountEl = document.getElementById('totalBlockedCount');
   const blockedListEl = document.getElementById('blockedList');
+  const listBadge = document.getElementById('listBadge');
 
   // Query active tab
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -16,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       currentDomain = urlObj.hostname;
       currentDomainEl.textContent = currentDomain || 'N/A';
     } catch (e) {
-      currentDomainEl.textContent = 'System Page';
+      currentDomainEl.textContent = 'Internal Page';
     }
   }
 
@@ -39,7 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Whitelist Button Listener
   whitelistBtn.addEventListener('click', async () => {
-    if (!currentDomain || currentDomainEl.textContent === 'System Page') return;
+    if (!currentDomain || currentDomainEl.textContent === 'Internal Page') return;
     
     const currentData = await chrome.storage.local.get(['whitelist']);
     let list = currentData.whitelist || [];
@@ -57,13 +59,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateWhitelistBtnUI(whitelisted) {
     if (whitelisted) {
-      whitelistBtn.textContent = 'Whitelisted';
-      whitelistBtn.classList.remove('btn-secondary');
-      whitelistBtn.classList.add('btn-active');
+      whitelistBtnText.textContent = 'Whitelisted';
+      whitelistBtn.classList.add('active');
     } else {
-      whitelistBtn.textContent = 'Whitelist Site';
-      whitelistBtn.classList.remove('btn-active');
-      whitelistBtn.classList.add('btn-secondary');
+      whitelistBtnText.textContent = 'Whitelist Site';
+      whitelistBtn.classList.remove('active');
     }
   }
 
@@ -72,19 +72,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.sendMessage({ type: 'GET_TAB_STATE', tabId: activeTab.id }, (res) => {
       const list = (res && res.blockedPopups) ? res.blockedPopups : [];
       tabBlockedCountEl.textContent = list.length;
+      listBadge.textContent = list.length;
 
       if (list.length > 0) {
         blockedListEl.innerHTML = '';
         list.forEach((item) => {
           const div = document.createElement('div');
-          div.className = 'blocked-item';
+          div.className = 'blocked-item-row';
           
           const urlSpan = document.createElement('span');
-          urlSpan.className = 'blocked-url';
+          urlSpan.className = 'item-url-text';
           urlSpan.textContent = item.url;
+          urlSpan.title = item.url;
 
           const openBtn = document.createElement('button');
-          openBtn.className = 'btn btn-secondary';
+          openBtn.className = 'btn btn-open';
           openBtn.textContent = 'Open';
           openBtn.addEventListener('click', () => {
             chrome.tabs.create({ url: item.url });
