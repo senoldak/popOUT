@@ -90,6 +90,93 @@
     } catch (e) {}
   }
 
+  // ─── Empty ad slot collapser ──────────────────────────────────────────────────
+  // Known ad container CSS selectors
+  const AD_SLOT_SELECTORS = [
+    'ins.adsbygoogle',                     // Google AdSense
+    '[id^="google_ads"]', '[id*="_ad_"]', '[id*="-ad-"]',
+    '[class*="ad-slot"]', '[class*="ad_slot"]',
+    '[class*="adunit"]', '[class*="ad-unit"]',
+    '[class*="advertisement"]', '[id*="advertisement"]',
+    '[class*="banner-ad"]', '[id*="banner-ad"]',
+    '[class*="dfp-ad"]', '[id*="dfp"]',
+    '[class*="adsense"]', '[id*="adsense"]',
+    '[data-ad-slot]', '[data-ad-unit]', '[data-ad-client]',
+    'iframe[src*="doubleclick"]', 'iframe[src*="googlesyndication"]',
+    'iframe[src*="adnxs"]', 'iframe[src*="adform"]',
+    'iframe[src*="rubiconproject"]', 'iframe[src*="pubmatic"]'
+  ];
+
+  // Standard IAB ad dimensions (w x h) — if empty element matches, collapse it
+  const AD_SIZES = [
+    [728, 90], [970, 90], [970, 250],  // leaderboard
+    [300, 250], [336, 280], [300, 600], // rectangle / half-page
+    [160, 600], [120, 600],             // skyscraper
+    [320, 50],  [320, 100],             // mobile banner
+    [468, 60],  [234, 60]               // full / half banner
+  ];
+
+  function isAdSize(w, h) {
+    return AD_SIZES.some(([aw, ah]) =>
+      Math.abs(w - aw) <= 4 && Math.abs(h - ah) <= 4
+    );
+  }
+
+  function isEffectivelyEmpty(el) {
+    // No meaningful text
+    const text = (el.innerText || '').trim();
+    if (text.length > 8) return false;
+    // No visible images
+    const imgs = el.querySelectorAll('img');
+    for (const img of imgs) {
+      if (img.naturalWidth > 0) return false;
+    }
+    // No visible iframes with content
+    const frames = el.querySelectorAll('iframe');
+    for (const fr of frames) {
+      try {
+        if (fr.contentDocument?.body?.innerHTML?.trim()?.length > 10) return false;
+      } catch {}
+    }
+    return true;
+  }
+
+  function collapseEmptyAdSlots() {
+    if (!overlayBlockerEnabled) return;
+    if (document.documentElement.getAttribute('data-popout-enabled') === 'false') return;
+    if (document.documentElement.getAttribute('data-popout-whitelisted') === 'true') return;
+
+    // 1️⃣ Known ad selectors — if empty, hide
+    AD_SLOT_SELECTORS.forEach(sel => {
+      try {
+        document.querySelectorAll(sel).forEach(el => {
+          if (isEffectivelyEmpty(el) && !el.hasAttribute('data-popout-collapsed')) {
+            el.setAttribute('data-popout-collapsed', '1');
+            el.style.setProperty('display', 'none', 'important');
+          }
+        });
+      } catch {}
+    });
+
+    // 2️⃣ Heuristic: inline/block elements with ad dimensions that are empty
+    const candidates = document.querySelectorAll('div, aside, section, span');
+    candidates.forEach(el => {
+      try {
+        if (el.hasAttribute('data-popout-collapsed')) return;
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 60 || rect.height < 30) return; // too small to be an ad slot
+        if (!isAdSize(Math.round(rect.width), Math.round(rect.height))) return;
+        if (!isEffectivelyEmpty(el)) return;
+        // Make sure it's not a layout element by checking it has ad-like class/id
+        const idClass = ((el.id || '') + ' ' + (el.className || '')).toLowerCase();
+        const hasAdHint = /ad|banner|sponsor|promo|widget|slot|pub|dfp/.test(idClass);
+        if (!hasAdHint) return;
+        el.setAttribute('data-popout-collapsed', '1');
+        el.style.setProperty('display', 'none', 'important');
+      } catch {}
+    });
+  }
+
   // ─── Main cleanup ────────────────────────────────────────────────────────────
   function cleanOverlays() {
     if (document.documentElement.getAttribute('data-popout-enabled') === 'false') return;
@@ -111,6 +198,9 @@
 
     // Generic full-screen overlay sweep (catches backdrops)
     if (removeFullScreenOverlays()) removed = true;
+
+    // Collapse leftover empty ad slots
+    collapseEmptyAdSlots();
 
     // Restore body scroll
     if (removed) {
