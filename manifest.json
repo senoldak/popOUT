@@ -6,10 +6,10 @@
   "permissions": [
     "storage",
     "activeTab",
+    "tabs",
     "scripting",
     "browsingData",
-    "cookies",
-    "sessions"
+    "cookies"
   ],
   "host_permissions": [
     "<all_urls>"

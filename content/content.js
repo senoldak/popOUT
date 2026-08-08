@@ -6,57 +6,75 @@
   (document.head || document.documentElement).appendChild(script);
 
   // ─── State flags ─────────────────────────────────────────────────────────────
-  let overlayBlockerEnabled   = true;
-  let antiAdblockEnabled      = true;
-  let stripTrackersEnabled    = true;
+  let overlayBlockerEnabled     = true;
+  let antiAdblockEnabled        = true;
+  let stripTrackersEnabled      = true;
   let blockNotificationsEnabled = true;
-  let antiFingerprintEnabled  = true;
+  let antiFingerprintEnabled    = true;
 
   // ─── Selectors ───────────────────────────────────────────────────────────────
   const OVERLAY_SELECTORS = [
     '.fc-consent-root', '#onetrust-consent-sdk', '.onetrust-pc-dark-filter',
     '.qc-cmp2-container', '#didomi-host', '.cookie-consent-modal',
-    '#cookie-law-info-bar', 'div[class*="consent"]', 'div[id*="consent"]',
+    '#cookie-law-info-bar',
+    'div[class*="consent"]', 'div[id*="consent"]',
     'div[class*="cookie-banner"]', 'div[id*="cookie-banner"]',
-    'div[class*="gdpr"]', 'div[id*="gdpr"]'
+    'div[class*="gdpr"]', 'div[id*="gdpr"]',
+    'div[class*="cookie"]', 'div[id*="cookie"]',
+    'div[class*="CookieBanner"]', 'div[id*="CookieBanner"]'
   ];
 
   const ANTI_ADBLOCK_SELECTORS = [
-    'div[class*="adblock"]', 'div[id*="adblock"]', '.adblock-modal',
-    '#adblock-notice', '.adblock-overlay',
+    'div[class*="adblock"]', 'div[id*="adblock"]',
+    '.adblock-modal', '#adblock-notice', '.adblock-overlay',
     'div[class*="paywall"]', 'div[id*="paywall"]'
   ];
 
-  // ─── Heuristic overlay scanner ───────────────────────────────────────────────
-  // Only targets elements with cookie/consent KEYWORDS — avoids generic gray backdrops
-  function heuristicOverlayScan() {
+  // ─── Remove any full-screen backdrop/overlay divs (incl. empty backdrops) ───
+  function removeFullScreenOverlays() {
     if (!overlayBlockerEnabled) return false;
-    let found = false;
+    let removed = false;
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
-    document.querySelectorAll('div, section, dialog').forEach((el) => {
+    const candidates = document.querySelectorAll('div, section, dialog, aside, span[style], div[style]');
+    candidates.forEach((el) => {
       try {
         const style = window.getComputedStyle(el);
+        const pos   = style.position;
+        if (pos !== 'fixed' && pos !== 'absolute') return;
+
         const zIndex = parseInt(style.zIndex, 10) || 0;
-        const isFixed = style.position === 'fixed' || style.position === 'sticky';
-        if (!isFixed || zIndex < 999) return;
+        if (zIndex < 50) return;
 
         const rect = el.getBoundingClientRect();
-        const coversScreen = rect.width >= vw * 0.55 && rect.height >= vh * 0.45;
-        if (!coversScreen) return;
+        const coversW = rect.width  >= vw * 0.5;
+        const coversH = rect.height >= vh * 0.4;
+        if (!coversW || !coversH) return;
 
-        const text = (el.innerText || '').toLowerCase();
+        const text = (el.innerText || '').trim().toLowerCase();
+        const bg   = style.backgroundColor;
+
+        // Match 1: has consent/cookie keywords → always remove
         const KEYWORDS = ['cookie', 'consent', 'privacy', 'gizlilik', 'kabul',
-                          'allow', 'accept', 'datenschutz', 'politique'];
+                          'allow', 'accept', 'datenschutz', 'politique', 'gdpr',
+                          'çerez', 'onaylıyorum', 'agree', 'manage'];
         const hasKeyword = KEYWORDS.some(k => text.includes(k));
-        if (!hasKeyword) return; // ← skip plain gray backdrops
 
-        el.remove();
-        found = true;
+        // Match 2: pure backdrop (no text, semi-transparent/dark background)
+        const isEmptyBackdrop = text.length < 20 && (
+          bg.startsWith('rgba') ||
+          style.backdropFilter !== 'none' ||
+          parseFloat(style.opacity) < 0.95
+        );
+
+        if (hasKeyword || isEmptyBackdrop) {
+          el.remove();
+          removed = true;
+        }
       } catch (e) {}
     });
-    return found;
+    return removed;
   }
 
   // ─── URL tracker stripper ────────────────────────────────────────────────────
@@ -72,40 +90,51 @@
     } catch (e) {}
   }
 
-  // ─── Remove overlays + restore scroll ────────────────────────────────────────
+  // ─── Main cleanup ────────────────────────────────────────────────────────────
   function cleanOverlays() {
     if (document.documentElement.getAttribute('data-popout-enabled') === 'false') return;
     if (document.documentElement.getAttribute('data-popout-whitelisted') === 'true') return;
 
     let removed = false;
 
+    // Known selectors
     if (overlayBlockerEnabled) {
       OVERLAY_SELECTORS.forEach(sel => {
-        try {
-          document.querySelectorAll(sel).forEach(el => { el.remove(); removed = true; });
-        } catch (e) {}
+        try { document.querySelectorAll(sel).forEach(el => { el.remove(); removed = true; }); } catch (e) {}
       });
     }
-
     if (antiAdblockEnabled) {
       ANTI_ADBLOCK_SELECTORS.forEach(sel => {
-        try {
-          document.querySelectorAll(sel).forEach(el => { el.remove(); removed = true; });
-        } catch (e) {}
+        try { document.querySelectorAll(sel).forEach(el => { el.remove(); removed = true; }); } catch (e) {}
       });
     }
 
-    if (heuristicOverlayScan()) removed = true;
+    // Generic full-screen overlay sweep (catches backdrops)
+    if (removeFullScreenOverlays()) removed = true;
 
-    // Restore body scroll (only if something was actually removed)
+    // Restore body scroll
     if (removed) {
-      try { if (document.body?.style.overflow === 'hidden') document.body.style.removeProperty('overflow'); } catch (e) {}
-      try { if (document.documentElement?.style.overflow === 'hidden') document.documentElement.style.removeProperty('overflow'); } catch (e) {}
+      try {
+        ['overflow', 'overflow-y', 'overflow-x'].forEach(prop => {
+          if (document.body?.style.getPropertyValue(prop) === 'hidden')
+            document.body.style.removeProperty(prop);
+          if (document.documentElement?.style.getPropertyValue(prop) === 'hidden')
+            document.documentElement.style.removeProperty(prop);
+        });
+        // Also reset class-based locks
+        document.body?.classList.remove('modal-open', 'overflow-hidden', 'noscroll', 'body-locked');
+        document.documentElement?.classList.remove('modal-open', 'overflow-hidden', 'noscroll', 'body-locked');
+      } catch (e) {}
     }
   }
 
   // ─── MutationObserver ────────────────────────────────────────────────────────
-  const observer = new MutationObserver(() => cleanOverlays());
+  // Debounced to avoid performance hit on heavy mutation sites
+  let mutationTimer = null;
+  const observer = new MutationObserver(() => {
+    clearTimeout(mutationTimer);
+    mutationTimer = setTimeout(cleanOverlays, 120);
+  });
 
   // ─── Sync storage state → DOM attrs ─────────────────────────────────────────
   async function syncState() {
@@ -119,14 +148,14 @@
     blockNotificationsEnabled = settings.blockNotifications !== false;
     antiFingerprintEnabled    = settings.antiFingerprint !== false;
 
-    const whitelist  = data.whitelist || [];
-    const hostname   = window.location.hostname;
+    const whitelist = data.whitelist || [];
+    const hostname  = window.location.hostname;
     const isWhitelisted = whitelist.some(d => hostname === d || hostname.endsWith('.' + d));
 
-    document.documentElement.setAttribute('data-popout-enabled',            String(enabled));
-    document.documentElement.setAttribute('data-popout-whitelisted',        String(isWhitelisted));
-    document.documentElement.setAttribute('data-popout-block-notifications',String(enabled && !isWhitelisted && blockNotificationsEnabled));
-    document.documentElement.setAttribute('data-popout-anti-fingerprint',   String(enabled && !isWhitelisted && antiFingerprintEnabled));
+    document.documentElement.setAttribute('data-popout-enabled',             String(enabled));
+    document.documentElement.setAttribute('data-popout-whitelisted',         String(isWhitelisted));
+    document.documentElement.setAttribute('data-popout-block-notifications', String(enabled && !isWhitelisted && blockNotificationsEnabled));
+    document.documentElement.setAttribute('data-popout-anti-fingerprint',    String(enabled && !isWhitelisted && antiFingerprintEnabled));
 
     if (enabled && !isWhitelisted) {
       cleanTrackingParams();
@@ -143,14 +172,13 @@
     if (changes.settings || changes.whitelist) syncState();
   });
 
-  // ─── Relay blocked-popup event from injected.js → background ────────────────
+  // ─── Relay blocked-popup event → background ──────────────────────────────────
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
-    if (event.data?.type === 'POPOUT_BLOCKED_EVENT') {
-      chrome.runtime.sendMessage({
-        type: 'POPUP_BLOCKED',
-        url: event.data.url
-      }).catch(() => {}); // ignore if SW not ready yet
-    }
+    if (event.data?.type !== 'POPOUT_BLOCKED_EVENT') return;
+    chrome.runtime.sendMessage({
+      type: 'POPUP_BLOCKED',
+      url:  event.data.url
+    }).catch(() => {});
   });
 })();

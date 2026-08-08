@@ -1,34 +1,35 @@
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Tab state helpers (stored in local so they survive SW restarts) ─────────
+// Key pattern: "ts_{tabId}"  → Array<{url, time}>
+
+const TS_PREFIX = 'ts_';
 
 async function getTabState(tabId) {
-  const key = `tabState_${tabId}`;
-  const res = await chrome.storage.session.get([key]);
+  const key = TS_PREFIX + tabId;
+  const res = await chrome.storage.local.get([key]);
   return res[key] || [];
 }
 
 async function setTabState(tabId, list) {
-  const key = `tabState_${tabId}`;
-  await chrome.storage.session.set({ [key]: list });
+  await chrome.storage.local.set({ [TS_PREFIX + tabId]: list });
 }
 
 async function clearTabState(tabId) {
-  const key = `tabState_${tabId}`;
-  await chrome.storage.session.remove([key]);
+  await chrome.storage.local.remove([TS_PREFIX + tabId]);
 }
 
 // ─── Badge ──────────────────────────────────────────────────────────────────
-
 function updateBadge(tabId, count) {
-  if (count > 0) {
-    chrome.action.setBadgeText({ tabId, text: String(count) });
-    chrome.action.setBadgeBackgroundColor({ tabId, color: '#f43f5e' });
-  } else {
-    chrome.action.setBadgeText({ tabId, text: '' });
-  }
+  try {
+    if (count > 0) {
+      chrome.action.setBadgeText({ tabId, text: String(count) });
+      chrome.action.setBadgeBackgroundColor({ tabId, color: '#f43f5e' });
+    } else {
+      chrome.action.setBadgeText({ tabId, text: '' });
+    }
+  } catch (e) {}
 }
 
-// ─── Install ────────────────────────────────────────────────────────────────
-
+// ─── Install ─────────────────────────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(async () => {
   const data = await chrome.storage.local.get(['settings', 'whitelist']);
   if (!data.settings) {
@@ -47,81 +48,98 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
-// ─── Messages ───────────────────────────────────────────────────────────────
-
+// ─── Messages ────────────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
-  // ── Popup blocked ──
+  // Popup blocked by injected.js
   if (message.type === 'POPUP_BLOCKED' && sender.tab) {
     const tabId = sender.tab.id;
     (async () => {
-      const list = await getTabState(tabId);
-      list.push({ url: message.url || 'about:blank', time: Date.now() });
-      await setTabState(tabId, list);
-      updateBadge(tabId, list.length);
+      try {
+        const list = await getTabState(tabId);
+        list.push({ url: message.url || 'about:blank', time: Date.now() });
+        await setTabState(tabId, list);
+        updateBadge(tabId, list.length);
 
-      // Increment global counter
-      const res = await chrome.storage.local.get(['settings']);
-      const settings = res.settings || {};
-      settings.totalBlocked = (settings.totalBlocked || 0) + 1;
-      await chrome.storage.local.set({ settings });
+        const res = await chrome.storage.local.get(['settings']);
+        const settings = res.settings || {};
+        settings.totalBlocked = (settings.totalBlocked || 0) + 1;
+        await chrome.storage.local.set({ settings });
 
-      sendResponse({ success: true });
+        sendResponse({ success: true });
+      } catch (e) {
+        sendResponse({ success: false, error: String(e) });
+      }
     })();
-    return true; // keep channel open for async
+    return true; // keep message channel open
   }
 
-  // ── Get tab state ──
+  // Popup UI requests tab state
   if (message.type === 'GET_TAB_STATE') {
     (async () => {
-      const list = await getTabState(message.tabId);
-      sendResponse({ blockedPopups: list });
+      try {
+        const list = await getTabState(message.tabId);
+        sendResponse({ blockedPopups: list });
+      } catch (e) {
+        sendResponse({ blockedPopups: [] });
+      }
     })();
     return true;
   }
 
-  // ── Clear tab state ──
+  // Popup UI clears tab state
   if (message.type === 'CLEAR_TAB_STATE') {
     (async () => {
-      await clearTabState(message.tabId);
-      updateBadge(message.tabId, 0);
-      sendResponse({ success: true });
+      try {
+        await clearTabState(message.tabId);
+        updateBadge(message.tabId, 0);
+        sendResponse({ success: true });
+      } catch (e) {
+        sendResponse({ success: false });
+      }
     })();
     return true;
   }
 
-  // ── Clear site data ──
+  // Reset site cookies/storage
   if (message.type === 'CLEAR_SITE_DATA' && message.origin) {
     chrome.browsingData.remove(
       { origins: [message.origin] },
-      { cache: true, cookies: true, fileSystems: true, indexedDB: true, localStorage: true, serviceWorkers: true, webSQL: true },
-      () => { sendResponse({ success: true }); }
+      { cache: true, cookies: true, fileSystems: true, indexedDB: true,
+        localStorage: true, serviceWorkers: true, webSQL: true },
+      () => sendResponse({ success: true })
     );
     return true;
   }
 });
 
-// ─── Keyboard shortcut ───────────────────────────────────────────────────────
-
+// ─── Keyboard shortcut ────────────────────────────────────────────────────────
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'reset-site-data') {
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!activeTab?.url) return;
-    try {
-      const { origin } = new URL(activeTab.url);
-      if (!origin.startsWith('http')) return;
-      chrome.browsingData.remove(
-        { origins: [origin] },
-        { cache: true, cookies: true, fileSystems: true, indexedDB: true, localStorage: true, serviceWorkers: true, webSQL: true },
-        () => chrome.tabs.reload(activeTab.id)
-      );
-    } catch (e) {}
-  }
+  if (command !== 'reset-site-data') return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.url) return;
+  try {
+    const { origin } = new URL(tab.url);
+    if (!origin.startsWith('http')) return;
+    chrome.browsingData.remove(
+      { origins: [origin] },
+      { cache: true, cookies: true, fileSystems: true, indexedDB: true,
+        localStorage: true, serviceWorkers: true, webSQL: true },
+      () => chrome.tabs.reload(tab.id)
+    );
+  } catch (e) {}
 });
 
-// ─── Cleanup on tab close ────────────────────────────────────────────────────
-
+// ─── Clean up on tab close ────────────────────────────────────────────────────
 chrome.tabs.onRemoved.addListener((tabId) => {
   clearTabState(tabId);
-  chrome.action.setBadgeText({ tabId, text: '' });
+  try { chrome.action.setBadgeText({ tabId, text: '' }); } catch (e) {}
+});
+
+// ─── Clean old ts_ keys on navigate (so list resets per page load) ───────────
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status === 'loading') {
+    clearTabState(tabId);
+    updateBadge(tabId, 0);
+  }
 });
