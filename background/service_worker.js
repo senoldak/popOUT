@@ -6,7 +6,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   const data = await chrome.storage.local.get(['settings', 'whitelist']);
   if (!data.settings) {
     await chrome.storage.local.set({
-      settings: { enabled: true, blockOverlays: true, totalBlocked: 0 },
+      settings: { enabled: true, blockOverlays: true, blockAntiAdblock: true, stripTrackers: true, blockNotifications: true, antiFingerprint: true, totalBlocked: 0 },
       whitelist: []
     });
   }
@@ -35,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Increment global count
     chrome.storage.local.get(['settings'], (res) => {
-      const settings = res.settings || { enabled: true, blockOverlays: true, totalBlocked: 0 };
+      const settings = res.settings || {};
       settings.totalBlocked = (settings.totalBlocked || 0) + 1;
       chrome.storage.local.set({ settings });
     });
@@ -74,6 +74,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true });
     });
     return true;
+  }
+});
+
+// Handle Commands / Keyboard Shortcuts
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'reset-site-data') {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (activeTab && activeTab.url) {
+      try {
+        const urlObj = new URL(activeTab.url);
+        if (urlObj.origin && urlObj.origin.startsWith('http')) {
+          chrome.browsingData.remove({
+            origins: [urlObj.origin]
+          }, {
+            cache: true,
+            cookies: true,
+            fileSystems: true,
+            indexedDB: true,
+            localStorage: true,
+            serviceWorkers: true,
+            webSQL: true
+          }, () => {
+            chrome.tabs.reload(activeTab.id);
+          });
+        }
+      } catch (e) {}
+    }
   }
 });
 

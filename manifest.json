@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "popOUT - Smart Popup & Overlay Blocker",
-  "version": "1.2.0",
-  "description": "Intelligent popup & cookie banner blocker with site consent reset and live control dashboard.",
+  "version": "1.3.0",
+  "description": "Intelligent popup & cookie banner blocker with site consent reset, heuristic engine, and live control dashboard.",
   "permissions": [
     "storage",
     "activeTab",
@@ -29,6 +29,15 @@
       "16": "assets/icon16.png",
       "48": "assets/icon48.png",
       "128": "assets/icon128.png"
+    }
+  },
+  "commands": {
+    "reset-site-data": {
+      "suggested_key": {
+        "default": "Alt+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Reset Stored Site Consents & Cookies for active tab"
     }
   },
   "options_ui": {

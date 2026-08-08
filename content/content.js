@@ -13,7 +13,7 @@
   let blockNotificationsEnabled = true;
   let antiFingerprintEnabled = true;
 
-  // Common Cookie / GDPR / Overlay selectors and keywords
+  // Common Cookie / GDPR / Overlay selectors
   const OVERLAY_SELECTORS = [
     '.fc-consent-root',
     '#onetrust-consent-sdk',
@@ -40,6 +40,39 @@
     'div[class*="paywall"]',
     'div[id*="paywall"]'
   ];
+
+  // Heuristic Scan for Anonymous/Dynamic Modal Overlays
+  function heuristicOverlayScan() {
+    if (!overlayBlockerEnabled) return false;
+    let found = false;
+
+    const allDivs = document.querySelectorAll('div, section, dialog');
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    allDivs.forEach((el) => {
+      try {
+        const style = window.getComputedStyle(el);
+        const zIndex = parseInt(style.zIndex, 10);
+        const isFixed = style.position === 'fixed' || style.position === 'absolute';
+
+        if (isFixed && zIndex >= 999) {
+          const rect = el.getBoundingClientRect();
+          const coversScreen = (rect.width >= vw * 0.6) && (rect.height >= vh * 0.5);
+          const innerText = el.innerText ? el.innerText.toLowerCase() : '';
+
+          const hasConsentKeywords = innerText.includes('cookie') || innerText.includes('consent') || innerText.includes('gizlilik') || innerText.includes('kabul') || innerText.includes('allow') || innerText.includes('accept');
+
+          if (coversScreen && hasConsentKeywords) {
+            el.remove();
+            found = true;
+          }
+        }
+      } catch (e) {}
+    });
+
+    return found;
+  }
 
   // Strip URL Tracking Parameters
   function cleanTrackingParams() {
@@ -97,6 +130,10 @@
         } catch (e) {}
       });
     }
+
+    // Heuristic fallback for anonymous modals
+    const heuristicRemoved = heuristicOverlayScan();
+    if (heuristicRemoved) removed = true;
 
     // Restore page scrolling if modal locked it
     if (removed || document.body?.style.overflow === 'hidden' || document.documentElement?.style.overflow === 'hidden') {
