@@ -28,7 +28,7 @@
 
 body {
   width: 340px;
-  height: 520px;
+  height: 560px;
   background: var(--bg-gradient);
   color: var(--text-main);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -39,7 +39,7 @@ body {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   height: 100%;
 }
 
@@ -152,11 +152,41 @@ input:checked + .slider:before {
   transform: translateX(18px);
 }
 
+/* Reset Consent Action Button */
+.btn-reset-consent {
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: var(--accent-red);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-reset-consent:hover {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(244, 63, 94, 0.5);
+}
+
+.btn-reset-consent.done {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #10b981;
+}
+
 /* Active Site Hero Card */
 .content-area {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   flex: 1;
 }
 
@@ -165,7 +195,7 @@ input:checked + .slider:before {
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
-  padding: 12px 14px;
+  padding: 10px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -179,7 +209,7 @@ input:checked + .slider:before {
 
 .feature-toggle-card {
   border-radius: var(--radius-md);
-  padding: 10px 14px;
+  padding: 8px 14px;
 }
 
 .feature-info {
@@ -272,7 +302,7 @@ input:checked + .slider:before {
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  padding: 10px 12px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -321,7 +351,7 @@ input:checked + .slider:before {
 .blocked-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   overflow: hidden;
 }
@@ -415,7 +445,7 @@ input:checked + .slider:before {
   color: var(--text-muted);
   font-size: 11px;
   text-align: center;
-  padding: 16px;
+  padding: 12px;
 }
 
 .empty-state svg {

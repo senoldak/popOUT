@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "popOUT - Smart Popup Blocker",
-  "version": "1.0.0",
-  "description": "Intelligent popup window blocker with custom site whitelist and live control dashboard.",
+  "name": "popOUT - Smart Popup & Overlay Blocker",
+  "version": "1.2.0",
+  "description": "Intelligent popup & cookie banner blocker with site consent reset and live control dashboard.",
   "permissions": [
     "storage",
     "activeTab",
-    "scripting"
+    "scripting",
+    "browsingData",
+    "cookies"
   ],
   "host_permissions": [
     "<all_urls>"

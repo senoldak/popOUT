@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const currentDomainEl = document.getElementById('currentDomain');
   const whitelistBtn = document.getElementById('whitelistBtn');
   const whitelistBtnText = document.getElementById('whitelistBtnText');
+  const resetConsentBtn = document.getElementById('resetConsentBtn');
   const tabBlockedCountEl = document.getElementById('tabBlockedCount');
   const totalBlockedCountEl = document.getElementById('totalBlockedCount');
   const blockedListEl = document.getElementById('blockedList');
@@ -12,11 +13,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Query active tab
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   let currentDomain = '';
+  let currentOrigin = '';
   
   if (activeTab && activeTab.url) {
     try {
       const urlObj = new URL(activeTab.url);
       currentDomain = urlObj.hostname;
+      currentOrigin = urlObj.origin;
       currentDomainEl.textContent = currentDomain || 'N/A';
     } catch (e) {
       currentDomainEl.textContent = 'Internal Page';
@@ -63,6 +66,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await chrome.storage.local.set({ whitelist: list });
+  });
+
+  // Reset Stored Consents & Cookies Button Listener
+  resetConsentBtn.addEventListener('click', () => {
+    if (!currentOrigin || currentDomainEl.textContent === 'Internal Page') return;
+
+    resetConsentBtn.disabled = true;
+    const originalText = resetConsentBtn.innerHTML;
+    resetConsentBtn.textContent = 'Clearing site cookies & consents...';
+
+    chrome.runtime.sendMessage({ type: 'CLEAR_SITE_DATA', origin: currentOrigin }, (res) => {
+      resetConsentBtn.classList.add('done');
+      resetConsentBtn.textContent = '✓ Site Consents & Storage Cleared!';
+
+      // Reload active tab after 1s so the site reflects wiped consents
+      setTimeout(() => {
+        if (activeTab && activeTab.id) {
+          chrome.tabs.reload(activeTab.id);
+        }
+      }, 800);
+    });
   });
 
   function updateWhitelistBtnUI(whitelisted) {

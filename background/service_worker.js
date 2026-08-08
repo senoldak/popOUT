@@ -58,6 +58,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+
+  if (message.type === 'CLEAR_SITE_DATA' && message.origin) {
+    chrome.browsingData.remove({
+      origins: [message.origin]
+    }, {
+      cache: true,
+      cookies: true,
+      fileSystems: true,
+      indexedDB: true,
+      localStorage: true,
+      serviceWorkers: true,
+      webSQL: true
+    }, () => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
 });
 
 // Clear tab state on tab closed
