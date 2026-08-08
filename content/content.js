@@ -172,13 +172,39 @@
     if (changes.settings || changes.whitelist) syncState();
   });
 
-  // ─── Relay blocked-popup event → background ──────────────────────────────────
-  window.addEventListener('message', (event) => {
+  // ─── Relay blocked-popup event → storage.local + badge via SW ───────────────
+  window.addEventListener('message', async (event) => {
     if (event.source !== window) return;
     if (event.data?.type !== 'POPOUT_BLOCKED_EVENT') return;
-    chrome.runtime.sendMessage({
-      type: 'POPUP_BLOCKED',
-      url:  event.data.url
-    }).catch(() => {});
+
+    const url = event.data.url || 'about:blank';
+
+    try {
+      // 1️⃣ Write DIRECTLY to storage so popup.js can always read it
+      const tabId = await getOwnTabId();
+      if (tabId) {
+        const key  = `ts_${tabId}`;
+        const res  = await chrome.storage.local.get([key]);
+        const list = res[key] || [];
+        list.push({ url, time: Date.now() });
+        await chrome.storage.local.set({ [key]: list });
+      }
+
+      // 2️⃣ Also notify SW to update badge + global counter
+      chrome.runtime.sendMessage({ type: 'POPUP_BLOCKED', url }).catch(() => {});
+    } catch (e) {}
   });
+
+  // Get this content script's own tab ID via SW
+  async function getOwnTabId() {
+    try {
+      return await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'GET_OWN_TAB_ID' }, (res) => {
+          resolve((res && res.tabId) ? res.tabId : null);
+        });
+      });
+    } catch {
+      return null;
+    }
+  }
 })();

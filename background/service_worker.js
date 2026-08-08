@@ -51,6 +51,12 @@ chrome.runtime.onInstalled.addListener(async () => {
 // ─── Messages ────────────────────────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
+  // Content script requests its own tab ID
+  if (message.type === 'GET_OWN_TAB_ID' && sender.tab) {
+    sendResponse({ tabId: sender.tab.id });
+    return false;
+  }
+
   // Popup blocked by injected.js
   if (message.type === 'POPUP_BLOCKED' && sender.tab) {
     const tabId = sender.tab.id;
