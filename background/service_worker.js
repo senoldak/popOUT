@@ -6,7 +6,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   const data = await chrome.storage.local.get(['settings', 'whitelist']);
   if (!data.settings) {
     await chrome.storage.local.set({
-      settings: { enabled: true, totalBlocked: 0 },
+      settings: { enabled: true, blockOverlays: true, totalBlocked: 0 },
       whitelist: []
     });
   }
@@ -35,7 +35,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Increment global count
     chrome.storage.local.get(['settings'], (res) => {
-      const settings = res.settings || { enabled: true, totalBlocked: 0 };
+      const settings = res.settings || { enabled: true, blockOverlays: true, totalBlocked: 0 };
       settings.totalBlocked = (settings.totalBlocked || 0) + 1;
       chrome.storage.local.set({ settings });
     });

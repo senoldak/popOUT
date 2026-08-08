@@ -28,7 +28,7 @@
 
 body {
   width: 340px;
-  height: 480px;
+  height: 520px;
   background: var(--bg-gradient);
   color: var(--text-main);
   font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -39,7 +39,7 @@ body {
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   height: 100%;
 }
 
@@ -99,6 +99,11 @@ body {
   height: 26px;
 }
 
+.switch.small-switch {
+  width: 38px;
+  height: 20px;
+}
+
 .switch input {
   opacity: 0;
   width: 0;
@@ -128,6 +133,11 @@ body {
   box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+.small-switch .slider:before {
+  height: 14px;
+  width: 14px;
+}
+
 input:checked + .slider {
   background-color: var(--primary-cyan);
   box-shadow: 0 0 14px var(--primary-cyan-glow);
@@ -138,30 +148,54 @@ input:checked + .slider:before {
   transform: translateX(22px);
 }
 
+.small-switch input:checked + .slider:before {
+  transform: translateX(18px);
+}
+
 /* Active Site Hero Card */
 .content-area {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   flex: 1;
 }
 
-.active-site-card {
+.card {
   background: var(--card-bg);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-lg);
-  padding: 14px;
+  padding: 12px 14px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  position: relative;
-  overflow: hidden;
   transition: all 0.3s ease;
 }
 
 .active-site-card:hover {
   border-color: var(--border-glass-bright);
+}
+
+.feature-toggle-card {
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+}
+
+.feature-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.feature-desc {
+  font-size: 9px;
+  color: var(--text-muted);
 }
 
 .site-status-ring {
@@ -238,7 +272,7 @@ input:checked + .slider:before {
   backdrop-filter: blur(12px);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  padding: 12px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 12px;

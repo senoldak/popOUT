@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const globalToggle = document.getElementById('globalToggle');
+  const overlayToggle = document.getElementById('overlayToggle');
   const currentDomainEl = document.getElementById('currentDomain');
   const whitelistBtn = document.getElementById('whitelistBtn');
   const whitelistBtnText = document.getElementById('whitelistBtnText');
@@ -24,10 +25,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load storage state
   const data = await chrome.storage.local.get(['settings', 'whitelist']);
-  const settings = data.settings || { enabled: true, totalBlocked: 0 };
+  const settings = data.settings || { enabled: true, blockOverlays: true, totalBlocked: 0 };
   const whitelist = data.whitelist || [];
 
   globalToggle.checked = settings.enabled;
+  overlayToggle.checked = settings.blockOverlays !== false;
   totalBlockedCountEl.textContent = settings.totalBlocked || 0;
 
   const isWhitelisted = whitelist.includes(currentDomain);
@@ -36,6 +38,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Global Toggle Listener
   globalToggle.addEventListener('change', async () => {
     settings.enabled = globalToggle.checked;
+    await chrome.storage.local.set({ settings });
+  });
+
+  // Overlay Toggle Listener
+  overlayToggle.addEventListener('change', async () => {
+    settings.blockOverlays = overlayToggle.checked;
     await chrome.storage.local.set({ settings });
   });
 
