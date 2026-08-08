@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>popOUT Control Center</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">🛡️</div>
+        <h1>pop<span>OUT</span></h1>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="globalToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <div class="card domain-card">
+      <div class="domain-info">
+        <span class="label">Current Site</span>
+        <span class="domain-name" id="currentDomain">loading...</span>
+      </div>
+      <button class="btn btn-secondary" id="whitelistBtn">Whitelist Site</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat-box">
+        <span class="stat-value" id="tabBlockedCount">0</span>
+        <span class="stat-label">Tab Blocked</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-value" id="totalBlockedCount">0</span>
+        <span class="stat-label">Total Blocked</span>
+      </div>
+    </div>
+
+    <section class="list-section">
+      <h3>Blocked Popups (This Tab)</h3>
+      <div class="blocked-list" id="blockedList">
+        <div class="empty-state">No popups blocked on this page.</div>
+      </div>
+    </section>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
