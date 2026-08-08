@@ -26,7 +26,7 @@ function updateBadge(tabId, count) {
     } else {
       chrome.action.setBadgeText({ tabId, text: '' });
     }
-  } catch (e) {}
+  } catch (e) { /* tab may have closed */ }
 }
 
 // ─── Install ─────────────────────────────────────────────────────────────────
@@ -138,14 +138,13 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 // ─── Clean up on tab close ────────────────────────────────────────────────────
 chrome.tabs.onRemoved.addListener((tabId) => {
-  clearTabState(tabId);
+  clearTabState(tabId).catch(() => {});
   try { chrome.action.setBadgeText({ tabId, text: '' }); } catch (e) {}
 });
 
 // ─── Clean old ts_ keys on navigate (so list resets per page load) ───────────
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === 'loading') {
-    clearTabState(tabId);
-    updateBadge(tabId, 0);
-  }
+  if (changeInfo.status !== 'loading') return;
+  clearTabState(tabId).catch(() => {});
+  try { updateBadge(tabId, 0); } catch (e) {}
 });
