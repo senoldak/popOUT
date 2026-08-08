@@ -1,14 +1,26 @@
 document.addEventListener('DOMContentLoaded', async () => {
   const globalToggle = document.getElementById('globalToggle');
   const overlayToggle = document.getElementById('overlayToggle');
+  const antiAdblockToggle = document.getElementById('antiAdblockToggle');
+  const notificationsToggle = document.getElementById('notificationsToggle');
+  const trackersToggle = document.getElementById('trackersToggle');
+  const fingerprintToggle = document.getElementById('fingerprintToggle');
+
   const currentDomainEl = document.getElementById('currentDomain');
   const whitelistBtn = document.getElementById('whitelistBtn');
   const whitelistBtnText = document.getElementById('whitelistBtnText');
   const resetConsentBtn = document.getElementById('resetConsentBtn');
+  const openOptionsBtn = document.getElementById('openOptionsBtn');
+
   const tabBlockedCountEl = document.getElementById('tabBlockedCount');
   const totalBlockedCountEl = document.getElementById('totalBlockedCount');
   const blockedListEl = document.getElementById('blockedList');
   const listBadge = document.getElementById('listBadge');
+
+  // Open Options page
+  openOptionsBtn.addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
+  });
 
   // Query active tab
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -28,27 +40,39 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load storage state
   const data = await chrome.storage.local.get(['settings', 'whitelist']);
-  const settings = data.settings || { enabled: true, blockOverlays: true, totalBlocked: 0 };
+  const settings = data.settings || {};
   const whitelist = data.whitelist || [];
 
-  globalToggle.checked = settings.enabled;
+  globalToggle.checked = settings.enabled !== false;
   overlayToggle.checked = settings.blockOverlays !== false;
+  antiAdblockToggle.checked = settings.blockAntiAdblock !== false;
+  notificationsToggle.checked = settings.blockNotifications !== false;
+  trackersToggle.checked = settings.stripTrackers !== false;
+  fingerprintToggle.checked = settings.antiFingerprint !== false;
+
   totalBlockedCountEl.textContent = settings.totalBlocked || 0;
 
   const isWhitelisted = whitelist.includes(currentDomain);
   updateWhitelistBtnUI(isWhitelisted);
 
-  // Global Toggle Listener
-  globalToggle.addEventListener('change', async () => {
+  // Helper to save settings
+  async function saveSettings() {
     settings.enabled = globalToggle.checked;
-    await chrome.storage.local.set({ settings });
-  });
-
-  // Overlay Toggle Listener
-  overlayToggle.addEventListener('change', async () => {
     settings.blockOverlays = overlayToggle.checked;
+    settings.blockAntiAdblock = antiAdblockToggle.checked;
+    settings.blockNotifications = notificationsToggle.checked;
+    settings.stripTrackers = trackersToggle.checked;
+    settings.antiFingerprint = fingerprintToggle.checked;
     await chrome.storage.local.set({ settings });
-  });
+  }
+
+  // Bind toggles
+  globalToggle.addEventListener('change', saveSettings);
+  overlayToggle.addEventListener('change', saveSettings);
+  antiAdblockToggle.addEventListener('change', saveSettings);
+  notificationsToggle.addEventListener('change', saveSettings);
+  trackersToggle.addEventListener('change', saveSettings);
+  fingerprintToggle.addEventListener('change', saveSettings);
 
   // Whitelist Button Listener
   whitelistBtn.addEventListener('click', async () => {
@@ -73,14 +97,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!currentOrigin || currentDomainEl.textContent === 'Internal Page') return;
 
     resetConsentBtn.disabled = true;
-    const originalText = resetConsentBtn.innerHTML;
     resetConsentBtn.textContent = 'Clearing site cookies & consents...';
 
     chrome.runtime.sendMessage({ type: 'CLEAR_SITE_DATA', origin: currentOrigin }, (res) => {
       resetConsentBtn.classList.add('done');
       resetConsentBtn.textContent = '✓ Site Consents & Storage Cleared!';
 
-      // Reload active tab after 1s so the site reflects wiped consents
       setTimeout(() => {
         if (activeTab && activeTab.id) {
           chrome.tabs.reload(activeTab.id);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>popOUT - Intelligent Popup Blocker</title>
+  <title>popOUT - Ultimate Popup & Privacy Shield</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,18 +14,21 @@
     <!-- Header -->
     <header class="app-header">
       <div class="brand">
-        <div class="logo-container">
+        <div class="logo-container neon-pulse">
           <img src="../assets/icon48.png" alt="popOUT Logo" class="brand-logo">
         </div>
         <div class="brand-text">
           <h1>pop<span class="highlight">OUT</span></h1>
-          <span class="version-tag">v1.2</span>
+          <span class="version-tag">Ultimate v1.2</span>
         </div>
       </div>
-      <label class="switch" title="Toggle Protection">
-        <input type="checkbox" id="globalToggle" checked>
-        <span class="slider round"></span>
-      </label>
+      <div class="header-controls">
+        <button class="icon-btn" id="openOptionsBtn" title="Open Full Dashboard">⚙️</button>
+        <label class="switch" title="Toggle Protection">
+          <input type="checkbox" id="globalToggle" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
     </header>
 
     <!-- Main Active Site Card -->
@@ -42,22 +45,49 @@
         </button>
       </div>
 
-      <!-- Consent Reset Quick Action -->
+      <!-- Consent Reset Action Button -->
       <button class="btn btn-reset-consent" id="resetConsentBtn" title="Wipe stored cookies and consent data for this domain">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
         <span>Reset Stored Site Consents & Cookies</span>
       </button>
 
-      <!-- Feature Toggles Row -->
-      <div class="card feature-toggle-card">
-        <div class="feature-info">
-          <span class="feature-title">Block Cookie & GDPR Overlays</span>
-          <span class="feature-desc">Auto-hide modal consent dialogues</span>
+      <!-- Feature Toggles Accordion Grid -->
+      <div class="toggles-grid">
+        <div class="card mini-toggle-card">
+          <span class="toggle-label">Cookie & GDPR Overlays</span>
+          <label class="switch small-switch">
+            <input type="checkbox" id="overlayToggle" checked>
+            <span class="slider round"></span>
+          </label>
         </div>
-        <label class="switch small-switch" title="Toggle Cookie/Overlay Blocking">
-          <input type="checkbox" id="overlayToggle" checked>
-          <span class="slider round"></span>
-        </label>
+        <div class="card mini-toggle-card">
+          <span class="toggle-label">Anti-AdBlock Modals</span>
+          <label class="switch small-switch">
+            <input type="checkbox" id="antiAdblockToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="card mini-toggle-card">
+          <span class="toggle-label">Push Notifications</span>
+          <label class="switch small-switch">
+            <input type="checkbox" id="notificationsToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="card mini-toggle-card">
+          <span class="toggle-label">Strip URL Trackers</span>
+          <label class="switch small-switch">
+            <input type="checkbox" id="trackersToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
+        <div class="card mini-toggle-card">
+          <span class="toggle-label">Canvas Anti-Fingerprint</span>
+          <label class="switch small-switch">
+            <input type="checkbox" id="fingerprintToggle" checked>
+            <span class="slider round"></span>
+          </label>
+        </div>
       </div>
 
       <!-- Stats Grid -->
